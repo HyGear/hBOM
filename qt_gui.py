@@ -499,7 +499,7 @@ def make_tab_header(parent_layout: QVBoxLayout, app, title_text: str, help_key: 
     lay.addWidget(lbl)
     lay.addStretch(1)
 
-    btn_help = make_btn("? Help & Process Flowchart", "viewer", lambda: HelpDialogQt(app, help_key).exec())
+    btn_help = make_btn("❓ Help", "viewer", lambda: HelpDialogQt(app, help_key).exec())
     lay.addWidget(btn_help)
 
     parent_layout.addWidget(bar)
@@ -546,11 +546,17 @@ def setup_tree_columns(tree: QTreeWidget, col_defs: List[tuple]):
     tree.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
     tree.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
     hdr = tree.header()
-    hdr.setStretchLastSection(True)
+    hdr.setStretchLastSection(False)
     for idx, c in enumerate(col_defs):
         key, _label, w = c[0], c[1], c[2]
         hdr.setSectionResizeMode(idx, QHeaderView.ResizeMode.Interactive)
-        tree.setColumnWidth(idx, w)
+        # Give extra width padding to description, summary, and comparison columns
+        if key in ("name", "summary", "reason", "title", "tree_pn", "parent_desc", "desc"):
+            tree.setColumnWidth(idx, max(w, 240))
+        elif key.startswith("q") or key in ("ext_qty", "unit_weight", "ext_weight", "find", "rev", "uom", "size"):
+            tree.setColumnWidth(idx, max(w, 85))
+        else:
+            tree.setColumnWidth(idx, w)
         if key in RIGHT_ALIGN_KEYS:
             tree.headerItem().setTextAlignment(idx, int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter))
         elif key in CENTER_ALIGN_KEYS:
@@ -2612,7 +2618,7 @@ class LoginDialogQt(QDialog):
 class BOMPyQtApp(QMainWindow):
     def __init__(self, user_dict: Optional[dict] = None):
         super().__init__()
-        self.setWindowTitle("hBOM — Engineering BOM & ECO Manager (v8.0)")
+        self.setWindowTitle("hBOM — Engineering BOM & ECO Manager (v1.0)")
         self.resize(1480, 900)
         self.setMinimumSize(1220, 740)
 
@@ -2652,7 +2658,7 @@ class BOMPyQtApp(QMainWindow):
             lbl_hdr_icon.setStyleSheet("border: none;")
             hlay.addWidget(lbl_hdr_icon)
 
-        self.lbl_app_title = QLabel("hBOM — ENGINEERING BOM & ECO MANAGER (v8.0)")
+        self.lbl_app_title = QLabel("hBOM — ENGINEERING BOM & ECO MANAGER (v1.0)")
         self.lbl_app_title.setStyleSheet(f"color: {self.colors['fg_primary']}; font-size: 11pt; font-weight: bold; border: none;")
         hlay.addWidget(self.lbl_app_title)
         hlay.addStretch(1)
@@ -3260,18 +3266,22 @@ class BOMPyQtApp(QMainWindow):
         bar.addWidget(self.ent_lookup_cond_filter)
 
         bar.addWidget(make_btn("Explode BOM Tree", "viewer", self._run_bom_lookup))
+        bar.addWidget(make_btn("Expand All", "viewer", lambda: self.tree_lookup.expandAll()))
+        bar.addWidget(make_btn("Collapse All", "viewer", lambda: self.tree_lookup.collapseAll()))
         bar.addStretch(1)
         bar.addWidget(make_btn("Export CSV...", "viewer", lambda: export_tree_to_csv_qt(self.tree_lookup, "indented_bom.csv", self)))
         lay.addLayout(bar)
 
         self.tree_lookup = QTreeWidget()
         setup_tree_columns(self.tree_lookup, [
-            ("tree_pn", "Parent / Child Hierarchy PN", 240), ("desc", "Noun, Description", 230),
+            ("tree_pn", "Parent / Child Hierarchy PN", 260), ("desc", "Noun, Description", 230),
             ("type", "Category", 130), ("source_type", "Source", 70), ("cond", "Cond", 50),
             ("supply", "Supply Class", 95), ("find", "Find", 45), ("ext_qty", "Ext Qty", 65),
             ("unit_weight", "Unit Wt", 65), ("ext_weight", "Ext Wt", 65), ("uom", "UOM", 45),
             ("rev", "Rev", 45), ("material", "Material", 130)
         ])
+        self.tree_lookup.setRootIsDecorated(True)
+        self.tree_lookup.setIndentation(22)
         lay.addWidget(self.tree_lookup, 1)
 
     # ==========================================================================
@@ -3299,6 +3309,8 @@ class BOMPyQtApp(QMainWindow):
         bar.addWidget(self.rb_wu_single)
 
         bar.addWidget(make_btn("Trace Where-Used", "viewer", self._run_where_used))
+        bar.addWidget(make_btn("Expand All", "viewer", lambda: self.tree_wu.expandAll()))
+        bar.addWidget(make_btn("Collapse All", "viewer", lambda: self.tree_wu.collapseAll()))
         bar.addStretch(1)
         bar.addWidget(make_btn("Export CSV...", "viewer", lambda: export_tree_to_csv_qt(self.tree_wu, "where_used.csv", self)))
         lay.addLayout(bar)
@@ -3309,6 +3321,8 @@ class BOMPyQtApp(QMainWindow):
             ("parent_type", "Parent Category", 140), ("cond", "Cond", 55),
             ("supply", "Supply Class", 95), ("qty_per", "Qty Per", 65), ("uom", "UOM", 45), ("rev", "Rev", 45)
         ])
+        self.tree_wu.setRootIsDecorated(True)
+        self.tree_wu.setIndentation(22)
         lay.addWidget(self.tree_wu, 1)
 
     # ==========================================================================
@@ -3788,11 +3802,27 @@ class BOMPyQtApp(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Registration Error", str(e))
 
+    def _clean_hierarchy_label(self, raw_label: str) -> str:
+        s = str(raw_label).strip()
+        for prefix in ("|-- ", "+-- ", "└─ ", "├─ ", "|--", "+--"):
+            if s.startswith(prefix):
+                s = s[len(prefix):].strip()
+        return s
+
+    def _infer_row_depth(self, r: dict, depth_key: str, text_key: str) -> int:
+        if depth_key in r and r[depth_key] is not None:
+            try:
+                return max(0, int(r[depth_key]))
+            except Exception:
+                pass
+        raw = str(r.get(text_key, ""))
+        leading_spaces = len(raw) - len(raw.lstrip(" "))
+        return max(0, leading_spaces // 4)
+
     def _run_bom_lookup(self):
         asm_pn = self._resolve_wildcard_entry_pn(self.ent_lookup_pn, self._run_bom_lookup)
         if not asm_pn:
             return
-        # Keep tree order intact during hierarchical explosion
         self.tree_lookup.setSortingEnabled(False)
         self.tree_lookup.clear()
         inc_p = self.chk_lookup_pending.isChecked()
@@ -3800,15 +3830,71 @@ class BOMPyQtApp(QMainWindow):
         cond_f = self.ent_lookup_cond_filter.text().strip()
         try:
             with session_scope() as s:
-                rows = BOMService(s).get_indented_bom(asm_pn, include_pending=inc_p, single_level_only=single, condition_filter=cond_f)
+                svc = BOMService(s)
+                root_part = svc.get_part(asm_pn)
+                rows = svc.get_indented_bom(asm_pn, include_pending=inc_p, single_level_only=single, condition_filter=cond_f)
+
+                level_stack = {}
+
+                # If get_indented_bom starts at Level 1 children, create a Level 0 root assembly node
+                first_lvl = self._infer_row_depth(rows[0], "level", "tree_pn") if rows else 1
+                if root_part and first_lvl >= 1:
+                    root_mat = root_part.material_rel.name if root_part.material_rel else "-"
+                    root_item = QTreeWidgetItem([
+                        f"{root_part.part_number} (ROOT)",
+                        root_part.standard_name,
+                        root_part.part_type,
+                        root_part.source_type or "MAKE",
+                        root_part.condition_code or "-",
+                        "ROOT ASSY",
+                        "-",
+                        "1",
+                        f"{root_part.unit_weight:g}",
+                        f"{root_part.unit_weight:g}",
+                        root_part.uom,
+                        root_part.revision,
+                        root_mat,
+                    ])
+                    fg_root = QColor(self.colors["accent_primary"])
+                    for c in range(root_item.columnCount()):
+                        root_item.setForeground(c, QBrush(fg_root))
+                    self.tree_lookup.addTopLevelItem(root_item)
+                    level_stack[0] = root_item
+
                 for r in rows:
-                    self.tree_lookup.addTopLevelItem(QTreeWidgetItem([
-                        r["tree_pn"], r["description"], r["type"], r["source_type"],
-                        r["condition_code"], r["supply_class"], str(r["find"]),
-                        f"{r['ext_qty']:g}", f"{r['unit_weight']:g}", f"{r['ext_weight']:g}",
-                        r["uom"], r["revision"], r["material"]
-                    ]))
-            self.set_status_message(f"Exploded BOM tree for {asm_pn} ({len(rows)} rows)")
+                    lvl = self._infer_row_depth(r, "level", "tree_pn")
+                    clean_pn = self._clean_hierarchy_label(r.get("pn") or r["tree_pn"])
+                    item = QTreeWidgetItem([
+                        clean_pn,
+                        r["description"],
+                        r["type"],
+                        r["source_type"],
+                        r["condition_code"],
+                        r["supply_class"],
+                        str(r["find"]),
+                        f"{r['ext_qty']:g}",
+                        f"{r['unit_weight']:g}",
+                        f"{r['ext_weight']:g}",
+                        r["uom"],
+                        r["revision"],
+                        r["material"],
+                    ])
+                    item.apply_column_formatting(self.tree_lookup)
+
+                    if r["type"] in ("PRODUCT", "PRODUCTION SUBASSEMBLY"):
+                        fg = QColor(self.colors["accent_success"])
+                        for c in range(item.columnCount()):
+                            item.setForeground(c, QBrush(fg))
+
+                    parent_item = level_stack.get(lvl - 1)
+                    if parent_item is not None:
+                        parent_item.addChild(item)
+                    else:
+                        self.tree_lookup.addTopLevelItem(item)
+                    level_stack[lvl] = item
+
+            self.tree_lookup.expandAll()
+            self.set_status_message(f"Exploded collapsible BOM tree for {asm_pn} ({len(rows)} component rows)")
         except Exception as e:
             QMessageBox.critical(self, "BOM Lookup Error", str(e))
 
@@ -3821,14 +3907,59 @@ class BOMPyQtApp(QMainWindow):
         single = self.rb_wu_single.isChecked()
         try:
             with session_scope() as s:
-                rows = BOMService(s).where_used(t_pn, include_pending=True, single_level_only=single)
+                svc = BOMService(s)
+                comp_part = svc.get_part(t_pn)
+                rows = svc.where_used(t_pn, include_pending=True, single_level_only=single)
+
+                tier_stack = {}
+                if comp_part:
+                    root_item = QTreeWidgetItem([
+                        f"{comp_part.part_number} (TARGET COMPONENT)",
+                        comp_part.standard_name,
+                        comp_part.part_type,
+                        comp_part.condition_code or "-",
+                        "-",
+                        "1",
+                        comp_part.uom,
+                        comp_part.revision,
+                    ])
+                    fg_root = QColor(self.colors["accent_primary"])
+                    for c in range(root_item.columnCount()):
+                        root_item.setForeground(c, QBrush(fg_root))
+                    self.tree_wu.addTopLevelItem(root_item)
+                    tier_stack[0] = root_item
+
                 for r in rows:
-                    self.tree_wu.addTopLevelItem(QTreeWidgetItem([
-                        r["tree_pn"], r["parent_description"], r["parent_type"],
-                        r["condition_code"], r["supply_class"], f"{r['qty_per']:g}",
-                        r["uom"], r["rev"]
-                    ]))
-            self.set_status_message(f"Traced Where-Used impact for {t_pn} ({len(rows)} parent hits)")
+                    tier = self._infer_row_depth(r, "tier", "tree_pn")
+                    if tier <= 0:
+                        tier = 1
+                    clean_pn = self._clean_hierarchy_label(r.get("parent_pn") or r["tree_pn"])
+                    item = QTreeWidgetItem([
+                        clean_pn,
+                        r["parent_description"],
+                        r["parent_type"],
+                        r["condition_code"],
+                        r["supply_class"],
+                        f"{r['qty_per']:g}",
+                        r["uom"],
+                        r["rev"],
+                    ])
+                    item.apply_column_formatting(self.tree_wu)
+
+                    if r["parent_type"] == "PRODUCT":
+                        fg = QColor(self.colors["accent_success"])
+                        for c in range(item.columnCount()):
+                            item.setForeground(c, QBrush(fg))
+
+                    parent_item = tier_stack.get(tier - 1) or tier_stack.get(0)
+                    if parent_item is not None:
+                        parent_item.addChild(item)
+                    else:
+                        self.tree_wu.addTopLevelItem(item)
+                    tier_stack[tier] = item
+
+            self.tree_wu.expandAll()
+            self.set_status_message(f"Traced collapsible Where-Used tree for {t_pn} ({len(rows)} parent assemblies)")
         except Exception as e:
             QMessageBox.critical(self, "Where-Used Error", str(e))
 

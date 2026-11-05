@@ -1,4 +1,4 @@
-"""Interactive Command-Line Interface Backup (v1.0)."""
+"""Interactive Command-Line Interface Backup (v7.0)."""
 import sys
 from tabulate import tabulate
 from database import init_db, session_scope
@@ -9,7 +9,7 @@ from pdf_generator import generate_eco_pdf_file
 def run_cli():
     init_db()
     while True:
-        print(chr(10) + "=== ENGINEERING BOM SYSTEM CLI (v1.0) ===")
+        print(chr(10) + "=== ENGINEERING BOM SYSTEM CLI (v7.0) ===")
         print("1. Pull ECO Number       2. Update ECO Info      3. ECO Summary Report (Text & PDF)")
         print("4. Submit ECO Approval   5. Approve ECO          6. Register Drawing (Single/LH-RH/Tab)")
         print("7. Release Approved ECO  8. BOM Lookup           9. Where-Used   0. Exit")

@@ -1,4 +1,4 @@
-"""Application configuration and engineering constants (v1.0)."""
+"""Application configuration and engineering constants (v7.0)."""
 import os
 
 DEFAULT_SQLITE_URL = "sqlite:///engineering_bom.db"
