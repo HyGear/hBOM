@@ -9,3 +9,9 @@ Below are a few screenshots to show the current functionality:
 ![BOM Builder](https://raw.githubusercontent.com/HyGear/hBOM/refs/heads/main/screenshots/Screenshot%20From%202026-11-04%2020-35-14.png)
 
 ![ECO Manager](https://raw.githubusercontent.com/HyGear/hBOM/refs/heads/main/screenshots/Screenshot%20From%202026-11-04%2020-35-37.png)
+
+![BOM Lookup](https://raw.githubusercontent.com/HyGear/hBOM/refs/heads/main/screenshots/Screenshot%20From%202026-11-04%2020-35-56.png)
+
+![BOM Lookup](https://raw.githubusercontent.com/HyGear/hBOM/refs/heads/main/screenshots/Screenshot%20From%202026-11-04%2020-35-56.png)
+
+![Drawing Viewer](https://raw.githubusercontent.com/HyGear/hBOM/refs/heads/main/screenshots/Screenshot%20From%202026-11-04%2020-37-19.png)
