@@ -1,0 +1,22 @@
+{
+  "drawing_standard": "ISO (A4, A3, A2, A1, A0)",
+  "default_drawing_size": "NONE",
+  "unit_system": "METRIC (mm, kg, mL, L)",
+  "active_user": "System Administrator",
+  "user_role": "ADMIN (Full Access)",
+  "vault_root": "/home/user/bom_system/vault_storage",
+  "managed_vault_copy": true,
+  "theme_name": "Slate & Steel Blue (Default)",
+  "colors": {
+    "bg_primary": "#182232",
+    "bg_secondary": "#0F172A",
+    "bg_surface": "#263349",
+    "fg_primary": "#E2E8F0",
+    "fg_secondary": "#94A3B8",
+    "accent_primary": "#3B82F6",
+    "accent_success": "#2DD4BF",
+    "accent_warning": "#F59E0B",
+    "accent_danger": "#F87171"
+  },
+  "active_userid": "admin"
+}
